@@ -1,18 +1,38 @@
-(()=> {
+(() => {
   const root = document.documentElement;
   const buttons = document.querySelectorAll("[data-language-button]");
   const storageKey = "foxlog-language";
 
+  function queryLanguage() {
+    const value = new URLSearchParams(window.location.search).get("lang");
+    return value === "hu" || value === "en" ? value : null;
+  }
+
   function savedLanguage() {
     try {
       const saved = localStorage.getItem(storageKey);
-      if (saved === "hu" || saved === "en") return saved;
-    } catch (_) {}
-    return null;
+      return saved === "hu" || saved === "en" ? saved : null;
+    } catch (_) {
+      return null;
+    }
   }
 
   function browserLanguage() {
     return (navigator.language || "").toLowerCase().startsWith("hu") ? "hu" : "en";
+  }
+
+  function updateInternalLinks(language) {
+    document.querySelectorAll('a[href]').forEach(link => {
+      const raw = link.getAttribute("href");
+      if (!raw || raw.startsWith("#") || raw.startsWith("mailto:") || raw.startsWith("tel:")) return;
+
+      try {
+        const url = new URL(raw, window.location.href);
+        if (url.origin !== window.location.origin) return;
+        url.searchParams.set("lang", language);
+        link.href = url.href;
+      } catch (_) {}
+    });
   }
 
   function setLanguage(language, persist = true) {
@@ -26,12 +46,18 @@
       button.setAttribute("aria-pressed", String(active));
     });
 
+    updateInternalLinks(value);
+
     if (persist) {
       try { localStorage.setItem(storageKey, value); } catch (_) {}
+
+      const current = new URL(window.location.href);
+      current.searchParams.set("lang", value);
+      history.replaceState(null, "", current);
     }
   }
 
-  setLanguage(savedLanguage() || browserLanguage(), false);
+  setLanguage(queryLanguage() || savedLanguage() || browserLanguage(), false);
 
   buttons.forEach(button => {
     button.addEventListener("click", () => setLanguage(button.dataset.languageButton));
